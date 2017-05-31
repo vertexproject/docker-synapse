@@ -1,0 +1,45 @@
+# vim:set ft=dockerfile:
+FROM python:3.6
+
+ENV SYN_GIT_TAG v0.0.17
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt update -q\
+ && apt install -yq --no-install-recommends\ 
+    build-essential\
+    cron\
+    libffi-dev\
+    libssl-dev\
+    locales\
+ && apt-get clean\
+ && apt-get purge\
+ && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
+ && locale-gen en_US.UTF-8 \
+ && dpkg-reconfigure locales \
+ && /usr/sbin/update-locale LANG=en_US.UTF-8
+
+RUN pip install --upgrade\
+    pip\
+    setuptools\
+    wheel
+
+# set the locale
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
+
+# setup synapse
+WORKDIR /root/git
+RUN git clone --depth=5 --branch=$SYN_GIT_TAG https://github.com/vertexproject/synapse.git \
+ && mkdir /syndata\
+ && cd /root/git/synapse\
+ && python setup.py develop\
+ && cp synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
+
+VOLUME /syndata
+VOLUME /root/git/synapse
+WORKDIR /root/git/synapse
+
+EXPOSE 47322
+
+ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
